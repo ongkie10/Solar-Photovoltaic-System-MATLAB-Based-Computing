@@ -1,0 +1,216 @@
+function BRADS
+    % Create the Main UI Figure 
+    fig = uifigure('Name', 'BRADS INC. - Solar System Sizer', 'Position', [100, 50, 500, 880], 'Color', '#F4F6F9');
+
+    % --- HEADER & LOGO ---
+    % Automatically load logo if it exists in the folder
+    if exist('logo.png', 'file')
+        uiimage(fig, 'Position', [20, 810, 140, 65], 'ImageSource', 'logo.png');
+    end
+    
+    uilabel(fig, 'Position', [160, 820, 320, 40], 'Text', 'BRADS INC. Solar Sizer', ...
+        'FontSize', 22, 'FontWeight', 'bold', 'HorizontalAlignment', 'center', 'FontColor', '#2C3E50');
+
+    % --- CLIENT INFORMATION PANEL ---
+    pnlClient = uipanel(fig, 'Position', [20, 710, 460, 100], 'Title', 'Client Information', ...
+        'FontSize', 14, 'FontWeight', 'bold', 'BackgroundColor', 'w');
+    
+    uilabel(pnlClient, 'Position', [15, 45, 80, 22], 'Text', 'Client Name:');
+    txtClient = uieditfield(pnlClient, 'text', 'Position', [95, 45, 345, 22], 'Value', 'Juan Dela Cruz');
+    
+    uilabel(pnlClient, 'Position', [15, 15, 80, 22], 'Text', 'Location:');
+    txtLocation = uieditfield(pnlClient, 'text', 'Position', [95, 15, 160, 22], 'Value', 'Manila, Philippines');
+    
+    uilabel(pnlClient, 'Position', [265, 15, 60, 22], 'Text', 'Bldg Type:');
+    dropType = uidropdown(pnlClient, 'Position', [330, 15, 110, 22], ...
+        'Items', {'Residential', 'Commercial', 'Industrial'});
+
+    % --- INPUT PANEL ---
+    pnlInput = uipanel(fig, 'Position', [20, 430, 460, 270], 'Title', 'System Parameters', ...
+        'FontSize', 14, 'FontWeight', 'bold', 'BackgroundColor', 'w');
+
+    uilabel(pnlInput, 'Position', [15, 210, 300, 22], 'Text', 'Monthly kWh Data (Space separated):');
+    txtMonths = uitextarea(pnlInput, 'Position', [15, 160, 430, 45], ...
+        'Value', '588 735 644 1100 1100 1100 315 701 845 843 530 623', 'FontSize', 12);
+
+    % Row 1 Inputs (Affects AC)
+    uilabel(pnlInput, 'Position', [15, 115, 130, 22], 'Text', 'Daytime Usage (%):');
+    numDayUsage = uieditfield(pnlInput, 'numeric', 'Position', [145, 115, 65, 22], 'Value', 30);
+
+    uilabel(pnlInput, 'Position', [230, 115, 130, 22], 'Text', 'Peak Sun Hours (PH):');
+    numPSH = uieditfield(pnlInput, 'numeric', 'Position', [365, 115, 80, 22], 'Value', 4.5);
+
+    % Row 2 Inputs (Affects DC)
+    uilabel(pnlInput, 'Position', [15, 75, 120, 22], 'Text', 'Inverter Size (kW):');
+    numInv = uieditfield(pnlInput, 'numeric', 'Position', [130, 75, 80, 22], 'Value', 2);
+
+    uilabel(pnlInput, 'Position', [230, 75, 130, 22], 'Text', 'DC/AC Multiplier:');
+    numMult = uieditfield(pnlInput, 'numeric', 'Position', [365, 75, 80, 22], 'Value', 1.25);
+
+    % Row 3 Inputs (Affects Both)
+    uilabel(pnlInput, 'Position', [15, 35, 120, 22], 'Text', 'Panel Wattage (W):');
+    numPanelW = uieditfield(pnlInput, 'numeric', 'Position', [130, 35, 80, 22], 'Value', 600);
+
+    % --- BUTTONS (Split into 3 Steps) ---
+    uibutton(fig, 'Position', [20, 375, 140, 40], 'Text', '1. Compute AC Load', ...
+        'ButtonPushedFcn', @(btn,event) computeAC(), ...
+        'FontWeight', 'bold', 'FontSize', 12, 'BackgroundColor', '#2980B9', 'FontColor', 'w');
+
+    uibutton(fig, 'Position', [170, 375, 140, 40], 'Text', '2. Compute DC Solar', ...
+        'ButtonPushedFcn', @(btn,event) computeDC(), ...
+        'FontWeight', 'bold', 'FontSize', 12, 'BackgroundColor', '#E67E22', 'FontColor', 'w');
+
+    btnExport = uibutton(fig, 'Position', [320, 375, 140, 40], 'Text', '3. Export Receipt Image', ...
+        'ButtonPushedFcn', @(btn,event) exportReceipt(), ...
+        'FontWeight', 'bold', 'FontSize', 11, 'BackgroundColor', '#27AE60', 'FontColor', 'w', ...
+        'Enable', 'off'); 
+
+    % --- OUTPUT PANELS ---
+    % AC SIDE PANEL
+    pnlAC = uipanel(fig, 'Position', [20, 200, 460, 160], 'Title', 'AC Side (Load & Consumption)', ...
+        'FontSize', 14, 'FontWeight', 'bold', 'BackgroundColor', 'w', 'ForegroundColor', '#2980B9');
+
+    lblTotal = uilabel(pnlAC, 'Position', [15, 105, 430, 22], 'Text', 'Total Input kWh: -', 'FontSize', 13);
+    lblAvgMo = uilabel(pnlAC, 'Position', [15, 80, 430, 22], 'Text', 'Average Monthly kWh: -', 'FontSize', 13);
+    lblDaily = uilabel(pnlAC, 'Position', [15, 55, 430, 22], 'Text', 'Average kWh / Day: -', 'FontSize', 13);
+    lblTarget = uilabel(pnlAC, 'Position', [15, 30, 430, 22], 'Text', 'Target kWh / Day: -', 'FontSize', 13);
+    lblAC = uilabel(pnlAC, 'Position', [15, 5, 430, 22], 'Text', 'Required AC kW: -', 'FontSize', 13, 'FontWeight', 'bold');
+
+    % DC SIDE PANEL
+    pnlDC = uipanel(fig, 'Position', [20, 30, 460, 155], 'Title', 'DC Side (Solar Generation)', ...
+        'FontSize', 14, 'FontWeight', 'bold', 'BackgroundColor', 'w', 'ForegroundColor', '#E67E22');
+
+    lblDC = uilabel(pnlDC, 'Position', [15, 95, 430, 22], 'Text', 'Target DC kWp: -', 'FontSize', 13);
+    lblModules = uilabel(pnlDC, 'Position', [15, 65, 430, 22], 'Text', 'Number of Modules: -', 'FontSize', 13);
+    lblAdjDC = uilabel(pnlDC, 'Position', [15, 25, 430, 26], 'Text', 'Adjusted kWp: -', 'FontWeight', 'bold', 'FontSize', 16, 'FontColor', '#C0392B');
+
+    % Global variables for export
+    res_sumKwh = 0; res_numInputs = 0; res_avgMonthlyKwh = 0; res_dailyKwh = 0;
+    res_targetDaily = 0; res_acReq = 0; res_dcKwp = 0; 
+    res_numModsStr = '-'; res_adjKwpStr = '-'; 
+
+    % --- COMPUTATION FUNCTION 1: AC LOAD ---
+    function computeAC()
+        strVals = txtMonths.Value;
+        if iscell(strVals), strVals = strjoin(strVals, ' '); end
+        kwhData = str2num(strVals); %#ok<ST2NM>
+
+        if isempty(kwhData)
+            uialert(fig, 'Please enter valid numeric data.', 'Input Error'); return;
+        end
+
+        res_numInputs = length(kwhData); 
+        res_sumKwh = sum(kwhData);
+        res_avgMonthlyKwh = res_sumKwh / res_numInputs; 
+        res_dailyKwh = res_avgMonthlyKwh / 30; 
+        
+        % Removed offset, calculation now just uses daytime usage multiplier
+        res_targetDaily = res_dailyKwh * (numDayUsage.Value / 100);
+        res_acReq = res_targetDaily / numPSH.Value; 
+        
+        lblTotal.Text = sprintf('Total Input kWh: %.2f kWh', res_sumKwh);
+        lblAvgMo.Text = sprintf('Average Monthly kWh: %.2f kWh', res_avgMonthlyKwh);
+        lblDaily.Text = sprintf('Average kWh / Day: %.2f kWh', res_dailyKwh);
+        lblTarget.Text = sprintf('Target kWh / Day: %.2f kWh', res_targetDaily);
+        lblAC.Text = sprintf('Required AC kW: %.2f kW', res_acReq);
+    end
+
+    % --- COMPUTATION FUNCTION 2: DC GENERATION ---
+    function computeDC()
+        res_dcKwp = numInv.Value * numMult.Value;
+        totalWatts = res_dcKwp * 1000;
+        exactMods = totalWatts / numPanelW.Value; 
+        
+        if exactMods == floor(exactMods)
+            res_numModsStr = sprintf('%d panels', exactMods);
+            res_adjKwpStr = sprintf('%.2f kWp', (exactMods * numPanelW.Value) / 1000);
+        else
+            minMods = floor(exactMods); maxMods = ceil(exactMods);
+            res_numModsStr = sprintf('%d to %d panels', minMods, maxMods);
+            minAdj = (minMods * numPanelW.Value) / 1000;
+            maxAdj = (maxMods * numPanelW.Value) / 1000;
+            res_adjKwpStr = sprintf('%.2f to %.2f kWp', minAdj, maxAdj);
+        end
+        
+        lblDC.Text = sprintf('Target DC kWp: %.2f kWp', res_dcKwp);
+        lblModules.Text = ['Number of Modules: ', res_numModsStr];
+        lblAdjDC.Text = ['Adjusted kWp: ', res_adjKwpStr];
+        
+        btnExport.Enable = 'on'; % Enable export
+    end
+
+    % --- EXPORT IMAGE FUNCTION ---
+    function exportReceipt()
+        % Ask user where to save the picture
+        [file, path] = uiputfile('BRADS_Receipt.png', 'Save Receipt As Image');
+        if isequal(file, 0) || isequal(path, 0), return; end
+        fullPath = fullfile(path, file);
+
+        % Create a hidden, clean white figure to format the picture
+        receiptFig = figure('Visible', 'off', 'Color', 'w', 'Position', [0, 0, 800, 950]);
+        
+        % Logo Axis
+        if exist('logo.png', 'file')
+            axLogo = axes(receiptFig, 'Position', [0.08, 0.87, 0.15, 0.09]);
+            [img, ~, alpha] = imread('logo.png'); % Read image and its transparency
+            h = imshow(img, 'Parent', axLogo);
+            
+            % Fix for transparent PNGs turning black
+            if ~isempty(alpha)
+                set(h, 'AlphaData', alpha);
+            end
+        end
+        
+        % Text Axis (coordinates 0 to 100 for easy placement)
+        ax = axes(receiptFig, 'Position', [0 0 1 1], 'Visible', 'off');
+        xlim(ax, [0 100]); ylim(ax, [0 100]);
+        
+        % --- DRAW RECEIPT TEXT ---
+        % Header - Left aligned and shifted to X=25
+        text(ax, 25, 93, 'BRADS INC. - OFFICIAL SOLAR SIZING', 'FontSize', 20, 'FontWeight', 'bold', 'HorizontalAlignment', 'left', 'Color', '#2C3E50');
+        text(ax, 25, 90, ['Generated Date: ', datestr(now, 'mmmm dd, yyyy - hh:MM AM')], 'FontSize', 12, 'HorizontalAlignment', 'left', 'Color', '#7F8C8D');
+        line(ax, [8 92], [85 85], 'Color', 'k', 'LineWidth', 1.5);
+        
+        % Client Info
+        text(ax, 8, 80, 'CLIENT INFORMATION', 'FontSize', 14, 'FontWeight', 'bold');
+        text(ax, 8, 76, ['Name: ', txtClient.Value], 'FontSize', 12);
+        text(ax, 8, 73, ['Location: ', txtLocation.Value], 'FontSize', 12);
+        text(ax, 8, 70, ['Building Type: ', dropType.Value], 'FontSize', 12);
+        line(ax, [8 92], [66 66], 'Color', '#BDC3C7', 'LineWidth', 1);
+
+        % System Parameters
+        text(ax, 8, 62, 'INPUT PARAMETERS', 'FontSize', 14, 'FontWeight', 'bold');
+        text(ax, 8, 58, sprintf('Bill Data Entries: %d months', res_numInputs), 'FontSize', 12);
+        text(ax, 8, 55, sprintf('Daytime Usage Load: %.0f%%', numDayUsage.Value), 'FontSize', 12);
+        
+        text(ax, 50, 58, sprintf('Peak Sun Hours: %.2f PH', numPSH.Value), 'FontSize', 12);
+        text(ax, 50, 55, sprintf('Inverter Selected: %.2f kW', numInv.Value), 'FontSize', 12);
+        text(ax, 50, 52, sprintf('DC/AC Multiplier: %.2f', numMult.Value), 'FontSize', 12);
+        text(ax, 50, 49, sprintf('Panel Wattage: %.0f W', numPanelW.Value), 'FontSize', 12);
+        line(ax, [8 92], [45 45], 'Color', '#BDC3C7', 'LineWidth', 1);
+
+        % Columns for Results
+        % AC SIDE
+        text(ax, 8, 40, 'AC SIDE (LOAD & CONSUMPTION)', 'FontSize', 14, 'FontWeight', 'bold', 'Color', '#2980B9');
+        text(ax, 8, 36, sprintf('Total Input: %.2f kWh', res_sumKwh), 'FontSize', 12);
+        text(ax, 8, 33, sprintf('Average Monthly: %.2f kWh', res_avgMonthlyKwh), 'FontSize', 12);
+        text(ax, 8, 30, sprintf('Average Daily: %.2f kWh', res_dailyKwh), 'FontSize', 12);
+        text(ax, 8, 27, sprintf('Target Daily: %.2f kWh', res_targetDaily), 'FontSize', 12);
+        text(ax, 8, 22, sprintf('Required AC kW: %.2f kW', res_acReq), 'FontSize', 14, 'FontWeight', 'bold');
+
+        % DC SIDE
+        text(ax, 50, 40, 'DC SIDE (SOLAR GENERATION)', 'FontSize', 14, 'FontWeight', 'bold', 'Color', '#E67E22');
+        text(ax, 50, 36, sprintf('Target DC kWp: %.2f kWp', res_dcKwp), 'FontSize', 12);
+        text(ax, 50, 33, sprintf('Required Modules: %s', res_numModsStr), 'FontSize', 12);
+        text(ax, 50, 22, sprintf('Adjusted kWp: %s', res_adjKwpStr), 'FontSize', 14, 'FontWeight', 'bold', 'Color', '#C0392B');
+        
+        line(ax, [8 92], [16 16], 'Color', 'k', 'LineWidth', 1.5);
+        text(ax, 50, 12, 'BRADS INC. Proprietary Sizing Algorithm', 'FontSize', 10, 'FontAngle', 'italic', 'HorizontalAlignment', 'center', 'Color', '#95A5A6');
+
+        % Export the figure as a high-res image
+        exportgraphics(receiptFig, fullPath, 'Resolution', 300);
+        delete(receiptFig); % Clean up the hidden figure
+        
+        uialert(fig, sprintf('Image Receipt successfully saved to:\n%s', fullPath), 'Export Complete', 'Icon', 'success');
+    end
+end
